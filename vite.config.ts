@@ -13,7 +13,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': `http://localhost:${serverPort}`,
+      // trailing slash: '/api' would also capture the client module /api.ts
+      '/api/': `http://localhost:${serverPort}`,
       '/ws': { target: `ws://localhost:${serverPort}`, ws: true },
     },
   },
