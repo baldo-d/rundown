@@ -6,7 +6,16 @@ import { formatClock, formatDuration } from '../../shared/time';
 import { t } from '../i18n/it';
 import { useMeta, useRundown, useRundownActions } from '../hooks/data';
 import { onRemoteChange } from '../hooks/live';
-import { DEFAULT_COLUMNS, RundownTable, type ColumnVisibility } from '../components/RundownTable';
+import {
+  DEFAULT_COLUMNS,
+  RundownTable,
+  canHideColumn,
+  columnLabel,
+  customKey,
+  isColumnVisible,
+  resolveColumnOrder,
+  type ColumnVisibility,
+} from '../components/RundownTable';
 import { Inspector } from '../components/Inspector';
 import { ClockField } from '../components/inputs';
 import { Icon } from '../components/Icon';
@@ -123,10 +132,30 @@ function RundownEditor({ meta, dayId, stageId }: { meta: Meta; dayId: string; st
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const anchor = useRef<string | null>(null);
   const [pendingFocus, setPendingFocus] = useState<string | null>(null);
-  const [columns, setColumns] = useState<ColumnVisibility>(() => ({
-    ...DEFAULT_COLUMNS,
-    ...storage.get<ColumnVisibility>(COLUMNS_KEY),
-  }));
+  const [columns, setColumns] = useState<ColumnVisibility>(() => {
+    const saved = storage.get<Partial<ColumnVisibility>>(COLUMNS_KEY);
+    return {
+      ...DEFAULT_COLUMNS,
+      ...saved,
+      custom: { ...saved?.custom },
+      order: Array.isArray(saved?.order) ? saved.order : [],
+    };
+  });
+  const columnOrder = resolveColumnOrder(columns.order, meta.customFields);
+  const moveColumn = (index: number, delta: number) => {
+    const to = index + delta;
+    if (to < 0 || to >= columnOrder.length) return;
+    const next = [...columnOrder];
+    [next[index], next[to]] = [next[to], next[index]];
+    setColumns({ ...columns, order: next });
+  };
+  const setColumnVisible = (key: string, visible: boolean) => {
+    if (key.startsWith('cf:')) {
+      setColumns({ ...columns, custom: { ...columns.custom, [key.slice(3)]: visible } });
+    } else {
+      setColumns({ ...columns, [key]: visible });
+    }
+  };
   const [showColumns, setShowColumns] = useState(false);
   const [showInspector, setShowInspector] = useState(() => storage.get<boolean>(INSPECTOR_KEY) ?? true);
   useEffect(() => storage.set(INSPECTOR_KEY, showInspector), [showInspector]);
@@ -293,6 +322,9 @@ function RundownEditor({ meta, dayId, stageId }: { meta: Meta; dayId: string; st
         remove();
       } else if (e.key === 'Escape') {
         setSelection(new Set());
+      } else if (!mod && !e.altKey && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        setShowInspector((v) => !v);
       } else if (!mod && !e.altKey && ['e', 'b', 'r'].includes(e.key.toLowerCase())) {
         e.preventDefault();
         add(e.key.toLowerCase() === 'e' ? 'event' : e.key.toLowerCase() === 'b' ? 'block' : 'delay');
@@ -377,28 +409,51 @@ function RundownEditor({ meta, dayId, stageId }: { meta: Meta; dayId: string; st
             </button>
             {showColumns && (
               <div className="popover" onMouseLeave={() => setShowColumns(false)}>
-                {(['cue', 'end', 'speakers', 'note'] as const).map((key) => (
-                  <label key={key} className="check">
-                    <input
-                      type="checkbox"
-                      checked={columns[key]}
-                      onChange={(e) => setColumns({ ...columns, [key]: e.target.checked })}
-                    />
-                    {key === 'end' ? t.rundown.end : t.rundown[key]}
-                  </label>
-                ))}
-                {meta.customFields.map((f) => (
-                  <label key={f.id} className="check">
-                    <input
-                      type="checkbox"
-                      checked={columns.custom[f.id] !== false}
-                      onChange={(e) =>
-                        setColumns({ ...columns, custom: { ...columns.custom, [f.id]: e.target.checked } })
-                      }
-                    />
-                    {f.label}
-                  </label>
-                ))}
+                {columnOrder.map((key, i) => {
+                  const field = key.startsWith('cf:') ? meta.customFields.find((f) => customKey(f.id) === key) : undefined;
+                  return (
+                    <div key={key} className="column-option">
+                      <label className="check">
+                        <input
+                          type="checkbox"
+                          checked={isColumnVisible(key, columns)}
+                          disabled={!canHideColumn(key)}
+                          onChange={(e) => setColumnVisible(key, e.target.checked)}
+                        />
+                        {field && <span className="dot" style={{ background: field.color }} />}
+                        {columnLabel(key, meta.customFields)}
+                      </label>
+                      <span className="move-buttons horizontal">
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label={`${t.common.moveUp}: ${columnLabel(key, meta.customFields)}`}
+                          disabled={i === 0}
+                          onClick={() => moveColumn(i, -1)}
+                        >
+                          <Icon name="chevronUp" />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label={`${t.common.moveDown}: ${columnLabel(key, meta.customFields)}`}
+                          disabled={i === columnOrder.length - 1}
+                          onClick={() => moveColumn(i, 1)}
+                        >
+                          <Icon name="chevronDown" />
+                        </button>
+                      </span>
+                    </div>
+                  );
+                })}
+                <p className="popover-hint muted">{t.rundown.dragColumn}</p>
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  onClick={() => setColumns({ ...columns, order: [] })}
+                >
+                  {t.rundown.resetColumns}
+                </button>
               </div>
             )}
           </div>
@@ -409,9 +464,10 @@ function RundownEditor({ meta, dayId, stageId }: { meta: Meta; dayId: string; st
             type="button"
             className={`btn ghost ${showInspector ? 'on' : ''}`}
             aria-pressed={showInspector}
+            title={`${showInspector ? t.inspector.hide : t.inspector.show} (I)`}
             onClick={() => setShowInspector((v) => !v)}
           >
-            <Icon name="sidebar" /> {t.inspector.title}
+            <Icon name="sidebar" /> {showInspector ? t.inspector.hide : t.inspector.show}
           </button>
         </div>
 
@@ -438,6 +494,7 @@ function RundownEditor({ meta, dayId, stageId }: { meta: Meta; dayId: string; st
               onFocusRow={onFocusRow}
               onPatch={patch}
               onReorder={reorder}
+              onReorderColumns={(order) => setColumns((c) => ({ ...c, order }))}
             />
           )}
         </div>
@@ -449,6 +506,7 @@ function RundownEditor({ meta, dayId, stageId }: { meta: Meta; dayId: string; st
         onPatch={patchMany}
         onDuplicate={duplicate}
         onDelete={remove}
+        onClose={() => setShowInspector(false)}
       />
       )}
     </>

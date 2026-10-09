@@ -13,14 +13,15 @@ interface Props {
   onPatch: (ids: string[], patch: EntryInput) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onClose: () => void;
 }
 
 /** Right-hand panel with every detail of the selected entry, or batch edits for a multi-selection. */
-export function Inspector({ rows, customFields, onPatch, onDuplicate, onDelete }: Props) {
+export function Inspector({ rows, customFields, onPatch, onDuplicate, onDelete, onClose }: Props) {
   if (rows.length === 0) {
     return (
       <aside className="inspector">
-        <h2>{t.inspector.title}</h2>
+        <InspectorHeader title={t.inspector.title} onClose={onClose} />
         <p className="muted">{t.inspector.noSelection}</p>
         <Shortcuts />
       </aside>
@@ -33,7 +34,7 @@ export function Inspector({ rows, customFields, onPatch, onDuplicate, onDelete }
     const all = (fn: (e: Entry) => boolean) => entries.every(fn);
     return (
       <aside className="inspector">
-        <h2>{t.inspector.batch}</h2>
+        <InspectorHeader title={t.inspector.batch} onClose={onClose} />
         <p className="muted">{t.rundown.selected(rows.length)}</p>
         <Field label={t.rundown.color}>
           <ColorPicker
@@ -64,7 +65,7 @@ export function Inspector({ rows, customFields, onPatch, onDuplicate, onDelete }
 
   return (
     <aside className="inspector" key={entry.id}>
-      <h2>{t.inspector.title}</h2>
+      <InspectorHeader title={t.inspector.title} onClose={onClose} />
       <Field label={t.inspector.type}>
         <div className="segmented">
           {(['event', 'block', 'delay'] as EntryType[]).map((type) => (
@@ -167,6 +168,17 @@ export function Inspector({ rows, customFields, onPatch, onDuplicate, onDelete }
 
       <Actions onDuplicate={onDuplicate} onDelete={onDelete} />
     </aside>
+  );
+}
+
+function InspectorHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="inspector-header">
+      <h2>{title}</h2>
+      <button type="button" className="icon-btn" aria-label={t.inspector.close} title={`${t.inspector.close} (I)`} onClick={onClose}>
+        <Icon name="close" />
+      </button>
+    </div>
   );
 }
 

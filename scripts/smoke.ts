@@ -156,6 +156,55 @@ async function main() {
   await ins.getByRole('button', { name: '#77c785' }).click();
   await page.waitForTimeout(400);
 
+  // details panel: close with ×, reopen from the toolbar, toggle with I
+  await page.locator('.inspector-header').getByRole('button', { name: 'Nascondi dettagli' }).click();
+  check((await page.locator('.inspector').count()) === 0, 'pannello dettagli nascosto con ×');
+  await page.locator('.toolbar').getByRole('button', { name: 'Mostra dettagli' }).click();
+  check((await page.locator('.inspector').count()) === 1, 'pannello dettagli riaperto dalla barra strumenti');
+  await page.locator('.rt-event').first().locator('.rt-end').click();
+  await page.keyboard.press('i');
+  check((await page.locator('.inspector').count()) === 0, 'pannello dettagli nascosto con il tasto I');
+  await page.keyboard.press('i');
+  check((await page.locator('.inspector').count()) === 1, 'pannello dettagli riaperto con il tasto I');
+
+  // column dividers + reorder columns by dragging the header
+  const headerCols = () => page.$$eval('.rt-header .rt-col', (els) => els.map((e) => e.getAttribute('data-col')));
+  const firstRowCols = () =>
+    page
+      .locator('.rt-event')
+      .first()
+      .evaluate((el) => [...el.querySelectorAll('.rt-cell')].map((c) => c.getAttribute('data-col')));
+  check(
+    (await page.locator('.rt-event').first().locator('.rt-cell').first().evaluate((el) => getComputedStyle(el).borderLeftStyle)) === 'solid',
+    'divisori tra le colonne della scaletta',
+  );
+  await page.$eval('.table-scroll', (el) => (el.scrollLeft = 0));
+  const defaultOrder = await headerCols();
+  const titleBox = (await page.locator('.rt-col[data-col="title"]').boundingBox())!;
+  const startBox = (await page.locator('.rt-col[data-col="start"]').boundingBox())!;
+  const dx = startBox.x + startBox.width / 2 - (titleBox.x + titleBox.width / 2);
+  await page.mouse.move(titleBox.x + titleBox.width / 2, titleBox.y + titleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(titleBox.x + titleBox.width / 2 - 10, titleBox.y + titleBox.height / 2, { steps: 4 });
+  await page.mouse.move(titleBox.x + titleBox.width / 2 + dx, titleBox.y + titleBox.height / 2, { steps: 15 });
+  await page.waitForTimeout(200);
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const colOrder = await headerCols();
+  check(colOrder.indexOf('title') === colOrder.indexOf('start') - 1, `colonna Titolo spostata prima di Inizio (${colOrder.join(',')})`);
+  check((await firstRowCols()).join() === colOrder.join(), 'le celle delle righe seguono il nuovo ordine');
+  await page.reload();
+  await page.waitForSelector('.rt-header .rt-col');
+  check((await headerCols()).join() === colOrder.join(), 'ordine delle colonne mantenuto dopo il ricaricamento');
+  await page.locator('.toolbar').getByRole('button', { name: 'Colonne' }).click();
+  await page.locator('.popover').getByRole('button', { name: 'Ripristina ordine predefinito' }).click();
+  check((await headerCols()).join() === defaultOrder.join(), 'ordine predefinito ripristinato');
+  await page.locator('.popover').getByRole('button', { name: 'Sposta giù: Cue' }).click();
+  check((await headerCols())[1] === 'cue', 'colonna spostata con i pulsanti ↑/↓');
+  await page.locator('.popover').getByRole('button', { name: 'Ripristina ordine predefinito' }).click();
+  await page.locator('.toolbar').getByRole('button', { name: 'Colonne' }).click();
+  await page.screenshot({ path: join(out, '09-colonne.png') });
+
   // overview
   await page.getByRole('link', { name: 'Panoramica' }).click();
   await page.waitForSelector('.ov-event');

@@ -677,6 +677,68 @@ select.field {
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
+/* column dividers: header and event rows share the same grid */
+.rt-header,
+.rt-event > .rt-row {
+  gap: 0;
+  align-items: stretch;
+}
+.rt-cell,
+.rt-col {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid var(--border);
+}
+.rt-cell {
+  padding: 0 3px;
+}
+.rt-item.selected .rt-cell {
+  border-left-color: #34456a;
+}
+.rt-cell > .field,
+.rt-cell > .rt-start {
+  width: 100%;
+}
+.rt-col {
+  gap: 4px;
+  padding: 0 8px 0 6px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  background: var(--bg);
+}
+.rt-col .icon {
+  opacity: 0;
+  margin-left: -2px;
+  transition: opacity 0.12s;
+}
+.rt-col:hover {
+  color: var(--text);
+}
+.rt-col:hover .icon,
+.rt-col:focus-visible .icon {
+  opacity: 0.7;
+}
+.rt-col.dragging {
+  cursor: grabbing;
+  z-index: 4;
+  color: var(--text);
+  background: var(--surface-3);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
+}
+.rt-col:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.rt-col-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rt-event > .rt-row > .rt-handle {
+  align-self: center;
+}
+
 .rt-item {
   position: relative;
   margin-top: 3px;
@@ -1013,6 +1075,36 @@ select.field {
 }
 .move-buttons .icon-btn {
   height: 18px;
+}
+.move-buttons.horizontal {
+  flex-direction: row;
+}
+.move-buttons.horizontal .icon-btn {
+  height: 24px;
+  width: 24px;
+}
+.column-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.column-option .check input:disabled {
+  opacity: 0.4;
+}
+.popover-hint {
+  margin: 4px 0 0;
+  max-width: 230px;
+  font-size: 0.75rem;
+  border-top: 1px solid var(--border-strong);
+  padding-top: 8px;
+}
+.inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -4px -6px 0 0;
 }
 .two-col {
   display: grid;
